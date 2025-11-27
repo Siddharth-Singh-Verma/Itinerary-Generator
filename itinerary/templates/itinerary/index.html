@@ -1,0 +1,397 @@
+{% extends 'itinerary/base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .section-title {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        font-size: 1.8rem;
+        color: #333;
+        border-bottom: 2px solid #ff9800;
+        display: inline-block;
+        padding-bottom: 5px;
+    }
+
+    .scroll-container {
+        display: flex;
+        overflow-x: auto;
+        gap: 30px;
+        /* Increased gap */
+        padding: 20px 5px;
+        /* Add side padding to avoid cut-off shadows */
+        scrollbar-width: thin;
+        scrollbar-color: #ff9800 #f1f1f1;
+        align-items: stretch;
+        /* Ensure items stretch to container height if needed */
+    }
+
+    .scroll-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .scroll-container::-webkit-scrollbar-thumb {
+        background: #ff9800;
+        border-radius: 4px;
+    }
+
+    /* Wrapper for the card (the label) */
+    .card-label {
+        flex: 0 0 350px;
+        /* Fixed width */
+        height: 500px;
+        /* Fixed height */
+        margin: 0;
+        /* Reset default label margin */
+        cursor: pointer;
+        display: block;
+        /* Ensure it behaves like a block */
+    }
+
+    .card {
+        width: 100%;
+        height: 100%;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        background: white;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .card.selected {
+        border: 3px solid #ff9800;
+        transform: scale(1.02);
+        box-shadow: 0 0 15px rgba(255, 152, 0, 0.4);
+    }
+
+    .card img {
+        width: 100%;
+        height: 250px;
+        /* Increased image height */
+        object-fit: cover;
+        border-bottom: 1px solid #eee;
+    }
+
+    .card-body {
+        padding: 20px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        /* Align content to top */
+    }
+
+    .card-title {
+        font-size: 1.4rem;
+        /* Larger title */
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #333;
+        line-height: 1.3;
+    }
+
+    .card-text {
+        font-size: 1rem;
+        color: #666;
+        margin-bottom: 8px;
+        line-height: 1.5;
+    }
+
+    .form-section {
+        background: #fff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-top: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #555;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+
+    input:focus,
+    select:focus {
+        border-color: #ff9800;
+        outline: none;
+    }
+
+    .btn-nav {
+        padding: 12px 30px;
+        background-color: #ff9800;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: background-color 0.3s, transform 0.2s;
+        font-weight: bold;
+    }
+
+    .btn-nav:hover {
+        background-color: #e68900;
+        transform: translateY(-2px);
+    }
+
+    .btn-nav.secondary {
+        background-color: #e0e0e0;
+        color: #333;
+        margin-right: 10px;
+    }
+
+    .btn-nav.secondary:hover {
+        background-color: #d5d5d5;
+    }
+
+    /* Checkbox hack to hide actual inputs but keep functionality */
+    .hidden-checkbox {
+        display: none;
+    }
+
+    /* Wizard Steps */
+    .wizard-step {
+        display: none;
+        animation: fadeIn 0.5s;
+    }
+
+    .wizard-step.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="container">
+    <h1 style="text-align: center; margin-bottom: 30px; color: #ff9800;">Plan Your Pilgrimage</h1>
+
+    <form action="{% url 'generate_itinerary' %}" method="POST" id="itineraryForm">
+        {% csrf_token %}
+
+        <!-- Step 1: Trip Details -->
+        <div class="wizard-step active" id="step1">
+            <div class="form-section">
+                <h2 class="section-title" style="margin-top: 0;">Step 1: Trip Details</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label>Starting Location</label>
+                        <input type="text" name="start_location" value="New Delhi"
+                            placeholder="Enter starting city or address" required>
+                        <input type="hidden" name="start_lat" value="28.6139">
+                        <input type="hidden" name="start_lng" value="77.2090">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Travel</label>
+                        <input type="date" name="date" required id="travelDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Start Time</label>
+                        <input type="time" name="time" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Mode of Transport</label>
+                        <select name="transport">
+                            <option value="car">Private Car</option>
+                            <option value="bus">Bus</option>
+                            <option value="train">Train</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <button type="button" class="btn-nav" onclick="nextStep(2)">Next: Select Temples &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Temple Selection -->
+        <div class="wizard-step" id="step2">
+            <h2 class="section-title">Step 2: Select Temples (Max 3)</h2>
+            <div class="scroll-container" id="temple-container">
+                {% for temple in temples %}
+                <label class="card-label">
+                    <input type="checkbox" name="temples" value="{{ temple.id }}"
+                        class="hidden-checkbox temple-checkbox">
+                    <div class="card" onclick="toggleSelection(this, 'temple')">
+                        <img src="{{ temple.image_url|default:'https://via.placeholder.com/300x200?text=Temple' }}"
+                            alt="{{ temple.name }}">
+                        <div class="card-body">
+                            <div class="card-title">{{ temple.name }}</div>
+                            <div class="card-text">📍 {{ temple.address|truncatechars:30 }}</div>
+                            <div class="card-text">🕉️ {{ temple.deity }}</div>
+                        </div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" class="btn-nav secondary" onclick="prevStep(1)">&larr; Back</button>
+                <button type="button" class="btn-nav" onclick="nextStep(3)">Next: Select Lunch &rarr;</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Lunch Spot Selection -->
+        <div class="wizard-step" id="step3">
+            <h2 class="section-title">Step 3: Select Lunch Spot</h2>
+            <div class="scroll-container">
+                {% for spot in lunch_spots %}
+                <label class="card-label">
+                    <input type="radio" name="lunch_spot" value="{{ spot.id }}" class="hidden-checkbox">
+                    <div class="card" onclick="selectSingle(this, 'lunch')">
+                        <img src="{{ spot.image_url|default:'https://via.placeholder.com/300x200?text=Restaurant' }}"
+                            alt="{{ spot.name }}">
+                        <div class="card-body">
+                            <div class="card-title">{{ spot.name }}</div>
+                            <div class="card-text">🍽️ {{ spot.cuisine }}</div>
+                            <div class="card-text">💰 {{ spot.price_range }}</div>
+                        </div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" class="btn-nav secondary" onclick="prevStep(2)">&larr; Back</button>
+                <button type="button" class="btn-nav" onclick="nextStep(4)">Next: Select Pandit &rarr;</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Pandit Selection -->
+        <div class="wizard-step" id="step4">
+            <h2 class="section-title">Step 4: Select Pandit</h2>
+            <div class="scroll-container" id="pandit-container">
+                {% for pandit in pandits %}
+                <label class="card-label">
+                    <input type="radio" name="pandit" value="{{ pandit.id }}" class="hidden-checkbox">
+                    <div class="card" onclick="selectSingle(this, 'pandit')">
+                        <img src="{{ pandit.image_url|default:'https://via.placeholder.com/300x200?text=Pandit' }}"
+                            alt="{{ pandit.name }}">
+                        <div class="card-body">
+                            <div class="card-title">{{ pandit.name }}</div>
+                            <div class="card-text">✨ {{ pandit.specialization }}</div>
+                            <div class="card-text">🎓 {{ pandit.years_of_experience }} Years Exp.</div>
+                        </div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" class="btn-nav secondary" onclick="prevStep(3)">&larr; Back</button>
+                <button type="submit" class="btn-nav">Generate Itinerary &rarr;</button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    function nextStep(step) {
+        // Validation for Step 1
+        if (step === 2) {
+            const date = document.getElementById('travelDate').value;
+            if (!date) {
+                alert("Please select a date of travel.");
+                return;
+            }
+        }
+
+        // Hide all steps
+        document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+        // Show target step
+        document.getElementById('step' + step).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    function prevStep(step) {
+        document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+        document.getElementById('step' + step).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    function toggleSelection(card, type) {
+        const checkbox = card.parentElement.querySelector('input');
+
+        if (type === 'temple') {
+            const selectedCount = document.querySelectorAll('.temple-checkbox:checked').length;
+            // Note: The click event happens before the checkbox state change is registered by the browser fully in some contexts,
+            // but since we are clicking the card inside the label, the label triggers the checkbox toggle.
+            // We need to check the FUTURE state or handle the logic carefully.
+
+            // Let's rely on the fact that the label click will toggle the checkbox.
+            // We just need to check if we are about to exceed the limit.
+
+            if (!checkbox.checked && selectedCount >= 3) {
+                alert("You can select a maximum of 3 temples.");
+                event.preventDefault(); // Prevent the toggle
+                return;
+            }
+
+            setTimeout(() => {
+                if (checkbox.checked) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            }, 10);
+        }
+    }
+
+    function selectSingle(card, type) {
+        const container = card.closest('.scroll-container');
+        container.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+    }
+
+    // Initialize visuals
+    document.querySelectorAll('input:checked').forEach(input => {
+        const card = input.parentElement.querySelector('.card');
+        if (card) card.classList.add('selected');
+    });
+
+    // Date change listener
+    document.getElementById('travelDate').addEventListener('change', function () {
+        console.log("Date changed to: " + this.value);
+        document.querySelectorAll('input[name="pandit"]').forEach(el => el.checked = false);
+        document.querySelectorAll('#pandit-container .card').forEach(el => el.classList.remove('selected'));
+    });
+</script>
+{% endblock %}
